@@ -42,15 +42,19 @@ function loadOBJ(renderer, path, name, objMaterial, transform) {
 								colorMap.CreateConstantTexture(renderer.gl, mat.color.toArray());
 							}
 
-							let material, shadowMaterial;
+							let material, shadowMaterial,shadowMaterial1;
 							let Translation = [transform.modelTransX, transform.modelTransY, transform.modelTransZ];
 							let Scale = [transform.modelScaleX, transform.modelScaleY, transform.modelScaleZ];
 
 							let light = renderer.lights[0].entity;
+							let light1 = renderer.lights[1].entity;
 							switch (objMaterial) {
 								case 'PhongMaterial':
-									material = buildPhongMaterial(colorMap, mat.specular.toArray(), light, Translation, Scale, "./src/shaders/phongShader/phongVertex.glsl", "./src/shaders/phongShader/phongFragment.glsl");
+									material = buildPhongMaterial(colorMap, mat.specular.toArray(), light,light1, Translation, Scale, "./src/shaders/phongShader/phongVertex.glsl", "./src/shaders/phongShader/phongFragment.glsl");
+									
+									
 									shadowMaterial = buildShadowMaterial(light, Translation, Scale, "./src/shaders/shadowShader/shadowVertex.glsl", "./src/shaders/shadowShader/shadowFragment.glsl");
+									shadowMaterial1 = buildShadowMaterial(light1, Translation, Scale, "./src/shaders/shadowShader/shadowVertex.glsl", "./src/shaders/shadowShader/shadowFragment.glsl");
 									break;
 							}
 
@@ -59,6 +63,10 @@ function loadOBJ(renderer, path, name, objMaterial, transform) {
 								renderer.addMeshRender(meshRender);
 							});
 							shadowMaterial.then((data) => {
+								let shadowMeshRender = new MeshRender(renderer.gl, mesh, data);
+								renderer.addShadowMeshRender(shadowMeshRender);
+							});
+							shadowMaterial1.then((data) => {
 								let shadowMeshRender = new MeshRender(renderer.gl, mesh, data);
 								renderer.addShadowMeshRender(shadowMeshRender);
 							});

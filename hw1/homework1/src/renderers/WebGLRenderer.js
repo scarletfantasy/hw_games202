@@ -25,28 +25,28 @@ class WebGLRenderer {
         gl.enable(gl.DEPTH_TEST); // Enable depth testing
         gl.depthFunc(gl.LEQUAL); // Near things obscure far things
 
-        console.assert(this.lights.length != 0, "No light");
-        console.assert(this.lights.length == 1, "Multiple lights");
-
+        //console.assert(this.lights.length != 0, "No light");
+        //console.assert(this.lights.length == 1, "Multiple lights");
+        console.log(this.shadowMeshes.length)
         for (let l = 0; l < this.lights.length; l++) {
             // Draw light
             // TODO: Support all kinds of transform
             this.lights[l].meshRender.mesh.transform.translate = this.lights[l].entity.lightPos;
             this.lights[l].meshRender.draw(this.camera);
-
+            //console.log("test\n")
             // Shadow pass
             if (this.lights[l].entity.hasShadowMap == true) {
-                for (let i = 0; i < this.shadowMeshes.length; i++) {
+                for (let i = 0; i < this.shadowMeshes.length; i=i+1) {
                     this.shadowMeshes[i].draw(this.camera);
                 }
             }
 
             // Camera pass
-            for (let i = 0; i < this.meshes.length; i++) {
-                this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
-                this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, this.lights[l].entity.lightPos);
-                this.meshes[i].draw(this.camera);
-            }
+        }
+        for (let i = 0; i < this.meshes.length; i++) {
+            this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
+            this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, this.lights[0].entity.lightPos);
+            this.meshes[i].draw(this.camera);
         }
     }
 }

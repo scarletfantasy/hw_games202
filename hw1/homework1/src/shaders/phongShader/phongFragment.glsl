@@ -27,8 +27,10 @@ varying highp vec3 vNormal;
 #define PI2 6.283185307179586
 
 uniform sampler2D uShadowMap;
+uniform sampler2D uShadowMap1;
 
 varying vec4 vPositionFromLight;
+varying vec4 vPositionFromLight1;
 
 highp float rand_1to1(highp float x ) { 
   // -1 -1
@@ -171,16 +173,18 @@ vec3 blinnPhong() {
 
 void main(void) {
 
-  float visibility;
+  float visibility,visibility1;
   vec3 curvpos=vPositionFromLight.xyz/vPositionFromLight.w;
   vec3 shadowCoord=curvpos/2.0+0.5;
+  vec3 curvpos1=vPositionFromLight1.xyz/vPositionFromLight1.w;
+  vec3 shadowCoord1=curvpos1/2.0+0.5;
   //visibility = useShadowMap(uShadowMap, vec4(shadowCoord, 1.0));
   //visibility = PCF(uShadowMap, vec4(shadowCoord, 1.0));
   visibility = PCSS(uShadowMap, vec4(shadowCoord, 1.0));
-  
+  visibility1 = PCSS(uShadowMap1, vec4(shadowCoord1, 1.0));
   vec3 phongColor = blinnPhong();
   
-  gl_FragColor = vec4(phongColor * visibility, 1.0);
+  gl_FragColor = vec4(phongColor * min(visibility,visibility1), 1.0);
   //gl_FragColor = vec4(phongColor, 1.0);
   //gl_FragColor = vec4(depth,depth,depth,1.0);
   //gl_FragColor = vec4(visibility,visibility,visibility,1.0);
