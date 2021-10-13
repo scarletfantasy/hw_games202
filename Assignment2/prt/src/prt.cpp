@@ -126,12 +126,28 @@ namespace ProjEnv
                     // TODO: here you need to compute light sh of each face of cubemap of each pixel
                     // TODO: 此处你需要计算每个像素下cubemap某个面的球谐系数
                     Eigen::Vector3f dir = cubemapDirs[i * width * height + y * width + x];
+                   
+                    auto area = CalcArea(x, y, width, height);
+                    
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
+                                      
+                    for (int l = 0; l <= SHOrder; ++l)
+                    {
+                        for (int m = -l; m <= l; ++m)
+                        {
+                            Eigen::Vector3d curdir(dir.x(),dir.y(),dir.z());                           
+                            auto coeffindex = sh::GetIndex(l, m);
+                            SHCoeffiecents[coeffindex] = SHCoeffiecents[coeffindex]+Le* sh::EvalSH(l, m, curdir.normalized()) *area;
+                            //SHCoeffiecents[count] = Le*(area*(float)sh::EvalSH(l, m, curdir));                           
+                        }
+                    }
+                    
                 }
             }
         }
+        
         return SHCoeffiecents;
     }
 }
@@ -173,7 +189,15 @@ public:
             throw NoriException("Unsupported type: %s.", type);
         }
     }
+    inline float get_random_float()
+    {
+        std::random_device dev;
+        std::mt19937 rng(dev());
+        std::uniform_real_distribution<float> dist(0.f, 1.f); // distribution in range [1, 6]
 
+        return dist(rng);
+    }
+    
     virtual void preprocess(const Scene *scene) override
     {
 
@@ -206,18 +230,47 @@ public:
             auto shFunc = [&](double phi, double theta) -> double {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
+                
+                double curh = n.normalized().dot(wi.normalized());
+                double res = 0.0;
                 if (m_Type == Type::Unshadowed)
                 {
                     // TODO: here you need to calculate unshadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的unshadowed传输项球谐函数值
-                    return 0;
+                    if (curh >= 0.0)
+                    {
+                        res = curh;
+                    }
+                    return res;                    
                 }
                 else
                 {
                     // TODO: here you need to calculate shadowed transport term of a given direction
                     // TODO: 此处你需要计算给定方向下的shadowed传输项球谐函数值
-                    return 0;
+                    if (curh >= 0.0)
+                    {        
+
+                        nori::Ray3f ray(v,wi);
+                        nori::Intersection its;
+                        if (scene->rayIntersect(ray,its))
+                        {
+                            if (its.t > 0.001)
+                            {
+                                res = 0.0;
+                            }
+                            else
+                            {
+                                res = curh;
+                            }   
+                        }
+                        else
+                        {
+                            res = curh;              
+                        }                        
+                    }
+                    return res;                            
                 }
+                
             };
             auto shCoeff = sh::ProjectFunction(SHOrder, shFunc, m_SampleCount);
             for (int j = 0; j < shCoeff->size(); j++)
@@ -225,10 +278,57 @@ public:
                 m_TransportSHCoeffs.col(i).coeffRef(j) = (*shCoeff)[j];
             }
         }
+        float test = 0.0f;
         if (m_Type == Type::Interreflection)
         {
+            std::cout << "in" << "\n";
             // TODO: leave for bonus
+            for (int i = 0; i < mesh->getVertexCount(); i++)
+            {
+                const Point3f& v = mesh->getVertexPositions().col(i);
+                const Normal3f& n = mesh->getVertexNormals().col(i);
+                std::vector<double> ind(9, 0.0);
+                int samples = 20;
+                for (int j = 0; j < samples; ++j)
+                {
+                    double phi = get_random_float()*2* std::_Pi, theta = get_random_float()* std::_Pi;
+                    //std::cout << phi << " " << theta << "\n";
+                    Eigen::Array3d d = sh::ToVector(phi, theta);
+                    const auto wi = Vector3f(d.x(), d.y(), d.z());
+                    //return 1.0;
+                    float h = n.dot(wi);
+                    if (n.dot(wi) > 0.0f)
+                    {
+                        nori::Ray3f ray(v, wi);
+                        Intersection its;
+                        if (scene->rayIntersect(ray,its))
+                        {
+                            const Eigen::Matrix<Vector3f::Scalar, SHCoeffLength, 1> sh0 = m_TransportSHCoeffs.col(its.tri_index.x()),
+                                sh1 = m_TransportSHCoeffs.col(its.tri_index.y()),
+                                sh2 = m_TransportSHCoeffs.col(its.tri_index.z());
+
+                            const Vector3f& bary = its.bary;
+                            auto barysh = bary.x() * sh0 + bary.y() * sh1 + bary.z() * sh2;
+                            
+                            for (int k = 0; k < SHCoeffLength; k++)
+                            {
+                                ind[k] += barysh[k]* n.dot(wi)/samples;
+                            }
+                        }
+                        
+                    }
+                                        
+                }
+                for (int j = 0; j < SHCoeffLength; j++)
+                {
+                    m_TransportSHCoeffs.col(i).coeffRef(j) += ind[j];
+                    
+                }
+                test += ind[0] / 9.0f;
+                
+            }
         }
+        std::cout<<"hello" << test << "\n";
 
         // Save in face format
         for (int f = 0; f < mesh->getTriangleCount(); f++)
@@ -253,6 +353,7 @@ public:
         }
         std::cout << "Computed SH coeffs"
                   << " to: " << transPath.str() << std::endl;
+        
     }
 
     Color3f Li(const Scene *scene, Sampler *sampler, const Ray3f &ray) const
@@ -275,10 +376,12 @@ public:
         // TODO: you need to delete the following four line codes after finishing your calculation to SH,
         //       we use it to visualize the normals of model for debug.
         // TODO: 在完成了球谐系数计算后，你需要删除下列四行，这四行代码的作用是用来可视化模型法线
-        if (c.isZero()) {
+        
+        /*if (c.isZero()) {
             auto n_ = its.shFrame.n.cwiseAbs();
             return Color3f(n_.x(), n_.y(), n_.z());
-        }
+        }*/
+        
         return c;
     }
 
