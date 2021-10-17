@@ -11,6 +11,7 @@ uniform sampler2D uGNormalWorld;
 uniform sampler2D uGShadow;
 uniform sampler2D uGPosWorld;
 
+
 varying mat4 vWorldToScreen;
 varying highp vec4 vPosWorld;
 
@@ -123,6 +124,8 @@ vec3 GetGBufferDiffuse(vec2 uv) {
  */
 vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
   vec3 L = vec3(0.0);
+  vec3 kd=GetGBufferDiffuse(uv);
+  L=kd*max(0.0,dot(normalize(wo),GetGBufferNormalWorld(uv)))*uLightRadiance;
   return L;
 }
 
@@ -133,20 +136,103 @@ vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
  */
 vec3 EvalDirectionalLight(vec2 uv) {
   vec3 Le = vec3(0.0);
+  Le=GetGBufferuShadow(uv)*EvalDiffuse(vec3(0.0,0.0,0.0),uLightDir,uv);
+  
+  
   return Le;
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
+  float stepsize=0.04;
+  
+  for(int i=0;i<50;++i)
+  {
+    ori+=dir*stepsize;
+    float depth=GetDepth(ori);
+    vec2 uv=GetScreenCoordinate(ori);
+    float curdepth=GetGBufferDepth(uv);
+    if(uv.x>1.0||uv.x<0.0||uv.y>1.0||uv.y<0.0)
+    {
+      return false;
+    }
+    if(depth>curdepth+0.1)
+    {
+      hitPos=ori;
+      return true;
+    }
+  }
   return false;
 }
 
-#define SAMPLE_NUM 1
+#define SAMPLE_NUM 20
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
 
+
   vec3 L = vec3(0.0);
-  L = GetGBufferDiffuse(GetScreenCoordinate(vPosWorld.xyz));
+  //L = GetGBufferDiffuse(gl_FragCoord.xy);
+  //L = GetGBufferDiffuse(GetScreenCoordinate(vPosWorld.xyz));
+  L=EvalDirectionalLight(GetScreenCoordinate(vPosWorld.xyz));
   vec3 color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
   gl_FragColor = vec4(vec3(color.rgb), 1.0);
+  vec3 indcol=vec3(0.0);
+  float count=0.0;
+  
+  
+  
+  // vec3 hitpos;
+  // vec3 normal=GetGBufferNormalWorld(GetScreenCoordinate(vPosWorld.xyz));
+  
+  // bool hit=RayMarch(vPosWorld.xyz,reflect(vPosWorld.xyz-uCameraPos.xyz,normal),hitpos);
+  // if(hit)
+  // {
+    
+  //   gl_FragColor = vec4(GetGBufferDiffuse(GetScreenCoordinate(hitpos)),1.0);
+    
+    
+  // }
+  // else
+  // {
+  //   gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+  // }
+    
+  vec3 dcol=EvalDirectionalLight(GetScreenCoordinate(vPosWorld.xyz));
+  gl_FragColor=vec4(dcol,1.0);
+  gl_FragColor=vec4(dcol,1.0);
+  for(int i=0;i<SAMPLE_NUM;++i)
+  {
+    float pdf=0.0;
+    vec3 dir=SampleHemisphereUniform(s,pdf);
+    s+=0.1;
+    vec3 hitpos;
+    vec3 normal=GetGBufferNormalWorld(GetScreenCoordinate(vPosWorld.xyz));
+    if(dot(dir,normal)>0.0)
+    {
+      bool hit=RayMarch(vPosWorld.xyz,dir,hitpos);
+      if(hit)
+      {
+        indcol+=EvalDirectionalLight(GetScreenCoordinate(hitpos))*EvalDiffuse(vec3(0.0,0.0,0.0),dir,GetScreenCoordinate(vPosWorld.xyz));
+        //indcol+=EvalDiffuse(vec3(0.0,0.0,0.0),dir,GetScreenCoordinate(vPosWorld.xyz));
+        //indcol+=EvalDirectionalLight(GetScreenCoordinate(hitpos));
+        //gl_FragColor = vec4(GetGBufferDiffuse(GetScreenCoordinate(hitpos)),1.0);
+        //gl_FragColor = vec4(GetScreenCoordinate(hitpos),0.0,1.0);
+        count+=1.0;
+      }
+      else
+      {
+        //gl_FragColor = vec4(0.0,0.0,0.0, 1.0);
+      }
+      
+    }
+  }
+  vec3 finalcol=dcol+indcol/max(1.0,count);
+  gl_FragColor=vec4(finalcol,1.0);
+  //  float p=count/5.0;
+
+
+  //gl_FragColor=vec4(p,p,p,1.0);
+  //float dep=GetDepth(vPosWorld.xyz)/10.0;
+  //float dep=GetGBufferDepth(GetScreenCoordinate(vPosWorld.xyz));
+  //gl_FragColor = vec4(dep,dep,dep, 1.0);
 }
