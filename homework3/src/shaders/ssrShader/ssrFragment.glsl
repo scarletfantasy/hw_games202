@@ -125,7 +125,7 @@ vec3 GetGBufferDiffuse(vec2 uv) {
 vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
   vec3 L = vec3(0.0);
   vec3 kd=GetGBufferDiffuse(uv);
-  L=kd*max(0.0,dot(normalize(wo),GetGBufferNormalWorld(uv)))*uLightRadiance;
+  L=kd/3.14*max(0.0,dot(normalize(wo),GetGBufferNormalWorld(uv)))*uLightRadiance;
   return L;
 }
 
@@ -164,7 +164,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
   return false;
 }
 
-#define SAMPLE_NUM 20
+#define SAMPLE_NUM 5
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
@@ -204,15 +204,21 @@ void main() {
   {
     float pdf=0.0;
     vec3 dir=SampleHemisphereUniform(s,pdf);
+    
     s+=0.1;
     vec3 hitpos;
     vec3 normal=GetGBufferNormalWorld(GetScreenCoordinate(vPosWorld.xyz));
+    vec3 t=vec3(0,0,1);
+    vec3 n=cross(normal,t);
+    t=cross(normal,n);
+    dir=mat3(t,n,normal)*dir;
+    
     if(dot(dir,normal)>0.0)
     {
       bool hit=RayMarch(vPosWorld.xyz,dir,hitpos);
       if(hit)
       {
-        indcol+=EvalDirectionalLight(GetScreenCoordinate(hitpos))*EvalDiffuse(vec3(0.0,0.0,0.0),dir,GetScreenCoordinate(vPosWorld.xyz));
+        indcol+=EvalDirectionalLight(GetScreenCoordinate(hitpos))*EvalDiffuse(vec3(0.0,0.0,0.0),dir,GetScreenCoordinate(vPosWorld.xyz))/pdf;
         //indcol+=EvalDiffuse(vec3(0.0,0.0,0.0),dir,GetScreenCoordinate(vPosWorld.xyz));
         //indcol+=EvalDirectionalLight(GetScreenCoordinate(hitpos));
         //gl_FragColor = vec4(GetGBufferDiffuse(GetScreenCoordinate(hitpos)),1.0);
@@ -226,8 +232,10 @@ void main() {
       
     }
   }
-  vec3 finalcol=dcol+indcol/max(1.0,count);
-  gl_FragColor=vec4(finalcol,1.0);
+  L=dcol+indcol/max(1.0,count);
+  color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
+  gl_FragColor = vec4(vec3(color.rgb), 1.0);
+  //gl_FragColor=vec4(finalcol,1.0);
   //  float p=count/5.0;
 
 
