@@ -226,9 +226,10 @@ void main() {
       
     }
   }
-  vec3 finalcol=dcol+indcol/max(1.0,count);
-  gl_FragColor=vec4(finalcol,1.0);
-  //  float p=count/5.0;
+  L=dcol+indcol/max(1.0,count);
+  color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
+  gl_FragColor = vec4(vec3(color.rgb), 1.0);
+   float p=count/5.0;
 
 
   //gl_FragColor=vec4(p,p,p,1.0);
