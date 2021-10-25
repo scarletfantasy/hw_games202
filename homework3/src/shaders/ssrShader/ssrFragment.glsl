@@ -143,7 +143,10 @@ vec3 EvalDirectionalLight(vec2 uv) {
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
+  //cube
   float stepsize=0.04;
+  //cave
+  //float stepsize=0.1;
   
   for(int i=0;i<50;++i)
   {
@@ -164,7 +167,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
   return false;
 }
 
-#define SAMPLE_NUM 5
+#define SAMPLE_NUM 10
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
