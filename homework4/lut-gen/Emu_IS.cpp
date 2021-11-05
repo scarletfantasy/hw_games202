@@ -25,25 +25,32 @@ Vec2f Hammersley(uint32_t i, uint32_t N) { // 0-1
 
 Vec3f ImportanceSampleGGX(Vec2f Xi, Vec3f N, float roughness) {
     float a = roughness * roughness;
-
+    
     //TODO: in spherical space - Bonus 1
-
-
+    float thetam = atan(a * sqrt(Xi.x) / sqrt(1 - Xi.x));
+    float thetah = 2 * PI * Xi.y;
     //TODO: from spherical space to cartesian space - Bonus 1
- 
-
+    Vec3f dir = Vec3f(cos(thetah) * sin(thetam), sin(thetah) * sin(thetam), cos(thetam));
+    
     //TODO: tangent coordinates - Bonus 1
-
+    Vec3f t = Vec3f(0, 1, 0);
+    Vec3f b = cross(N, t);
+    t = cross(b, N);
 
     //TODO: transform H to tangent space - Bonus 1
-    
-    return Vec3f(1.0f);
+    Vec3f result = t * dir.x + b * dir.y + N * dir.z;
+    //return result;
+    return dir;
 }
 
 float GeometrySchlickGGX(float NdotV, float roughness) {
     // TODO: To calculate Schlick G1 here - Bonus 1
-    
-    return 1.0f;
+    float a = roughness;
+    float k = (a * a) / 2.0f;
+
+    float nom = NdotV;
+    float denom = NdotV * (1.0f - k) + k;
+    return nom/denom;
 }
 
 float GeometrySmith(float roughness, float NoV, float NoL) {
@@ -54,7 +61,9 @@ float GeometrySmith(float roughness, float NoV, float NoL) {
 }
 
 Vec3f IntegrateBRDF(Vec3f V, float roughness) {
-
+    float A = 0.0;
+    float B = 0.0;
+    float C = 0.0;
     const int sample_count = 1024;
     Vec3f N = Vec3f(0.0, 0.0, 1.0);
     for (int i = 0; i < sample_count; i++) {
@@ -68,13 +77,18 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness) {
         float NoV = std::max(dot(N, V), 0.0f);
         
         // TODO: To calculate (fr * ni) / p_o here - Bonus 1
-
+        
+        float g = GeometrySmith(roughness, NoV, NoL);
+        float gw = 1-VoH * g / NoH / NoV;
+        A += gw;
+        B += gw;
+        C += gw;
 
         // Split Sum - Bonus 2
         
     }
 
-    return Vec3f(1.0f);
+    return Vec3f(A / sample_count,B / sample_count,C / sample_count);
 }
 
 int main() {
@@ -95,7 +109,7 @@ uint8_t* data = buffer.data();
             data[(i * resolution + j) * 3 + 2] = uint8_t(irr.z * 255.0);
         }
     }
-    stbi_flip_vertically_on_write(true);
+    //stbi_flip_vertically_on_write(true);
     stbi_write_png("GGX_E_LUT.png", resolution, resolution, 3, data, resolution * 3);
     
     std::cout << "Finished precomputed!" << std::endl;

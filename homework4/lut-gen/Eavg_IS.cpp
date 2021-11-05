@@ -52,10 +52,10 @@ Vec3f IntegrateEmu(Vec3f V, float roughness, float NdotV, Vec3f Ei) {
         float NoV = std::max(dot(N, V), 0.0f);
 
         // TODO: To calculate Eavg here - Bonus 1
-        
+        Eavg += Ei * NoV*2.0f;
     }
 
-    return Vec3f(1.0);
+    return Eavg/sample_count;
 }
 
 void setRGB(int x, int y, float alpha, unsigned char *data) {
