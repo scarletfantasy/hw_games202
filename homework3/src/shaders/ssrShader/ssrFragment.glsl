@@ -164,7 +164,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
   return false;
 }
 
-#define SAMPLE_NUM 5
+#define SAMPLE_NUM 50
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
